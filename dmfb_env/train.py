@@ -29,8 +29,6 @@ def EvaluatePolicy(model, env,
     episode_rewards = []
     legacy_rewards = []
     n_steps = 0
-    #count = 0
-    #while(count < n_eval_episodes):
     for i in range(n_eval_episodes):
         obs = env.reset()
         done, state = False, None
@@ -41,20 +39,15 @@ def EvaluatePolicy(model, env,
             obs, reward, done, _info = env.step(action)
             reward = reward[0]
             done = done[0]
-            #reward = np.mean(reward)
-            #done = np.count_nonzero(done) > 0
             episode_reward += reward
             n_steps += 1
             this_loop_steps += 1
             legacy_r = legacyReward(env.envs[0], b_path)
         if b_path:
-            if this_loop_steps / legacy_r > 1.4:
-                continue
             episode_rewards.append(this_loop_steps)
         else:
             episode_rewards.append(episode_reward)
         legacy_rewards.append(legacy_r)
-        #count += 1
     mean_reward = np.mean(episode_rewards)
     mean_legacy = np.mean(legacy_rewards)
     return mean_reward, n_steps, mean_legacy
@@ -67,26 +60,14 @@ def runAnExperiment(
         policy_steps = 128,
         b_path = False):
     if model is None:
-        model = PPO2(MyCnnPolicy, env,
-                n_steps = policy_steps)
+        model = PPO2(MyCnnPolicy, env, n_steps = policy_steps)
     agent_rewards = []
     old_rewards = []
     episodes = []
-    mean_reward, n_steps, legacy_reward =\
-            EvaluatePolicy(model,
-                    model.get_env(),
-                    n_eval_episodes = 50,
-                    b_path = b_path)
-    agent_rewards.append(mean_reward)
-    old_rewards.append(legacy_reward)
-    episodes.append(0)
-    for i in range(1, num_iterations + 1):
+    for i in range(num_iterations + 1):
         model.learn(total_timesteps = num_steps)
-        mean_reward, n_steps, legacy_reward =\
-                EvaluatePolicy(model,
-                        model.get_env(),
-                        n_eval_episodes = 50,
-                        b_path = b_path)
+        mean_reward, n_steps, legacy_reward = EvaluatePolicy(model,
+                model.get_env(), n_eval_episodes = 50, b_path = b_path)
         agent_rewards.append(mean_reward)
         old_rewards.append(legacy_reward)
         episodes.append(i)
@@ -101,8 +82,7 @@ def showIsGPU():
     else:
         print("### Training on CPUs... ###")
 
-def plotAgentPerformance(a_rewards, o_rewards, size,
-            env_info, b_path = False):
+def plotAgentPerformance(a_rewards, o_rewards, size, env_info, b_path = False):
     a_rewards = np.array(a_rewards)
     o_rewards = np.array(o_rewards)
     a_line = np.average(a_rewards, axis = 0)
@@ -115,21 +95,15 @@ def plotAgentPerformance(a_rewards, o_rewards, size,
     with plt.style.context('ggplot'):
         plt.rcParams.update({'font.size': 20})
         plt.figure()
-        plt.fill_between(episodes, a_max, a_min,
-                facecolor = 'red', alpha = 0.3)
-        plt.fill_between(episodes, o_max, o_min,
-                facecolor = 'blue', alpha = 0.3)
+        plt.fill_between(episodes, a_max, a_min, facecolor = 'red', alpha = 0.3)
+        plt.fill_between(episodes, o_max, o_min, facecolor = 'blue',
+                alpha = 0.3)
         plt.plot(episodes, a_line, 'r-', label = 'Agent')
         plt.plot(episodes, o_line, 'b-', label = 'Baseline')
         if b_path:
-            leg = plt.legend(
-                    loc = 'upper left',
-                    shadow = True,
-                    fancybox = True)
+            leg = plt.legend(loc = 'upper left', shadow = True, fancybox = True)
         else:
-            leg = plt.legend(
-                    loc = 'lower right',
-                    shadow = True,
+            leg = plt.legend(loc = 'lower right', shadow = True,
                     fancybox = True)
         leg.get_frame().set_alpha(0.5)
         plt.title("DMFB " + size)
@@ -144,18 +118,13 @@ def plotAgentPerformance(a_rewards, o_rewards, size,
 def expSeveralRuns(args, n_e, n_s, n_repeat):
     size = str(args['w']) + 'x' + str(args['l'])
     env_info = '_m' + str(args['n_modules'])
-    env = make_vec_env(
-            DMFBEnv, n_envs = n_e,
-            env_kwargs = args)
+    env = make_vec_env(DMFBEnv, n_envs = n_e, env_kwargs = args)
     showIsGPU()
     a_rewards = []
     o_rewards = []
     for i in range(n_repeat):
-        a_r, o_r, episodes = runAnExperiment(
-                env,
-                num_iterations = 50,
-                num_steps = 20000,
-                policy_steps = n_s)
+        a_r, o_r, episodes = runAnExperiment(env, num_iterations = 50,
+                num_steps = 20000, policy_steps = n_s)
         a_rewards.append(a_r)
         o_rewards.append(o_r)
     plotAgentPerformance(a_rewards, o_rewards, size, env_info)
